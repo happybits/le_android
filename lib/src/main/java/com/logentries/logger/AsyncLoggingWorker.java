@@ -338,7 +338,7 @@ public class AsyncLoggingWorker {
                             }
 
                             if (message != null) {
-				leClient.write(msg.replace("\n", LINE_SEP_REPLACER));
+				leClient.write(message.replace("\n", LINE_SEP_REPLACER));
                                 message = null;
                             }
 
