@@ -261,11 +261,7 @@ public class AsyncLoggingWorker {
 
                 logs = localStorage.getAllLogsFromStorage(false);
                 for (String msg = logs.peek(); msg != null; msg = logs.peek()) {
-                    if(sendRawLogMessage){
-                        leClient.write(Utils.formatMessage(msg.replace("\n", LINE_SEP_REPLACER),logHostName, useHttpPost));
-                    }else{
-                        leClient.write(msg.replace("\n", LINE_SEP_REPLACER));
-                    }
+                    leClient.write(msg.replace("\n", LINE_SEP_REPLACER));
                     logs.poll(); // Remove the message after successful sending.
                 }
 
@@ -342,8 +338,7 @@ public class AsyncLoggingWorker {
                             }
 
                             if (message != null) {
-                                this.leClient.write(Utils.formatMessage(message.replace("\n", LINE_SEP_REPLACER),
-                                        logHostName, useHttpPost));
+				leClient.write(msg.replace("\n", LINE_SEP_REPLACER));
                                 message = null;
                             }
 
