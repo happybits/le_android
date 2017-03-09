@@ -3,12 +3,15 @@ package com.logentries.logger;
 import android.content.Context;
 import android.util.Log;
 
+import com.logentries.logger.LogStorage;
 import com.logentries.misc.Utils;
 import com.logentries.net.LogentriesClient;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -21,7 +24,11 @@ public class AsyncLoggingWorker {
     private static final String TAG = "LogentriesAndroidLogger";
 
     private static final int RECONNECT_WAIT = 2000; // milliseconds.
-    private static final int MAX_QUEUE_POLL_TIME = 10000; // milliseconds.
+    private static final int MAX_QUEUE_POLL_TIME = 1000; // milliseconds.
+
+    private static final int GROUPING_SLEEP_TIME = 3000; // milliseconds.
+    private static final int MIN_QUEUE_SIZE_TO_SLEEP = 3; // if queue is small - sleep for GROUPING_SLEEP_TIME
+    private long lastQueueSize = 0;
     /**
      * Size of the internal event queue.
      */
@@ -68,6 +75,17 @@ public class AsyncLoggingWorker {
      * Logs queue storage
      */
     private LogStorage localStorage;
+    
+    private boolean backgrounded = false;
+    /**
+     * Wake up times in background - wake up with increasingly longer periods
+     */
+    private long backgroundWakeUpTimes[] = { 300 * 1000, 600 * 1000, 3600 * 1000, 4 * 3600 * 1000, 24 * 3600 * 1000 };
+    private static final long flushGraceTime = 60 * 1000;
+    private int backgroundWakeUpTimesStage = 0;
+    private long backgroundWakeUpLastTime = 0;
+    private Timer timerToFallAsleep;
+
 
     public AsyncLoggingWorker(Context context, boolean useSsl, boolean useHttpPost, boolean useDataHub, String logToken,
                               String dataHubAddress, int dataHubPort, boolean logHostName) throws IOException {
@@ -105,9 +123,25 @@ public class AsyncLoggingWorker {
     }
 
     public void addLineToQueue(String line) {
+        boolean shouldStart = true;
+        
+        if (backgrounded) {
+            shouldStart = false;
+            long now = System.currentTimeMillis();
+            long timeSinceWakeUp = now - backgroundWakeUpLastTime;
+
+            if (timeSinceWakeUp > backgroundWakeUpTimes[backgroundWakeUpTimesStage]) {
+                if (backgroundWakeUpTimesStage < backgroundWakeUpTimes.length - 1) {
+                    backgroundWakeUpTimesStage++;
+                }
+                backgroundWakeUpLastTime = now;
+                startTimerToFallAsleep(flushGraceTime);
+                shouldStart = true;
+            }
+        }
 
         // Check that we have all parameters set and socket appender running.
-        if (!this.started) {
+        if (shouldStart && !this.started) {
 
             appender.start();
             started = true;
@@ -179,6 +213,40 @@ public class AsyncLoggingWorker {
                 throw new RuntimeException(QUEUE_OVERFLOW);
             }
         }
+    }
+
+    private void cancelTimerToFallAsleep() {
+        if (timerToFallAsleep != null) {
+            timerToFallAsleep.cancel();
+            timerToFallAsleep = null;
+        }
+    }
+
+    private void startTimerToFallAsleep(long gracePeriod) {
+        if (timerToFallAsleep == null) {
+            timerToFallAsleep = new Timer("logentries disable timer");
+            timerToFallAsleep.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    close(1);
+                    timerToFallAsleep.cancel();
+                    timerToFallAsleep = null;
+                }
+            }, 0, gracePeriod);
+        }
+    }
+
+    public void setBackgroundMode(boolean isBackground) {
+        if (backgrounded != isBackground) {
+            if (isBackground) {
+                backgroundWakeUpLastTime = System.currentTimeMillis();
+                backgroundWakeUpTimesStage = 0;
+                startTimerToFallAsleep(flushGraceTime);
+            } else {
+                cancelTimerToFallAsleep();
+            }
+        }
+        backgrounded = isBackground;
     }
 
     private class SocketAppender extends Thread {
@@ -312,12 +380,17 @@ public class AsyncLoggingWorker {
                     // they haven't been sent during the last session, so need to
                     // come first.
                     if (prevSavedLogs.isEmpty()) {
+                        // Grouping multiple log lines in order to reduce battery drain and improve network overhead thanks to Nagle algo in TCP
+                        // if queue is very small - we won't send new logs for some time, to allow them to buffer
+                        if (lastQueueSize <= 0 && queue.size() < MIN_QUEUE_SIZE_TO_SLEEP) {
+                            Thread.sleep(GROUPING_SLEEP_TIME);
+                            lastQueueSize = queue.size();
+                        }
 
                         // Try to take data from the queue if there are no logs from
                         // the local storage left to send.
                         message = queue.poll(MAX_QUEUE_POLL_TIME, TimeUnit.MILLISECONDS);
-                        if (message == null)
-                            Thread.sleep(30000);
+                        lastQueueSize--;
 
                     } else {
 
@@ -340,7 +413,7 @@ public class AsyncLoggingWorker {
                             }
 
                             if (message != null) {
-				leClient.write(message.replace("\n", LINE_SEP_REPLACER));
+                                leClient.write(message.replace("\n", LINE_SEP_REPLACER));
                                 message = null;
                             }
 

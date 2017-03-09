@@ -54,4 +54,7 @@ public class AndroidLogger {
         loggingWorker.addLineToQueue(message);
     }
 
+    public void setBackgroundMode(boolean isBackground) {
+        loggingWorker.setBackgroundMode(isBackground);
+    }
 }

@@ -165,6 +165,7 @@ public class LogentriesClient {
             if (socket != null) {
                 socket.close();
                 socket = null;
+                stream = null;
             }
         } catch (Exception e) {
             // Just hide the exception - we cannot throw here.
