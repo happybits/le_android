@@ -129,8 +129,13 @@ public class AsyncLoggingWorker {
             shouldStart = false;
             long now = System.currentTimeMillis();
             long timeSinceWakeUp = now - backgroundWakeUpLastTime;
+            // poor man's race condition protection here, to avoid using sync primitives
+            int idx = backgroundWakeUpTimesStage;
+            if (idx > backgroundWakeUpTimes.length - 1) {
+                idx = backgroundWakeUpTimes.length - 1;
+            }
 
-            if (timeSinceWakeUp > backgroundWakeUpTimes[backgroundWakeUpTimesStage]) {
+            if (timeSinceWakeUp > backgroundWakeUpTimes[idx]) {
                 if (backgroundWakeUpTimesStage < backgroundWakeUpTimes.length - 1) {
                     backgroundWakeUpTimesStage++;
                 }
