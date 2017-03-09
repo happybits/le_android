@@ -20,8 +20,8 @@ public class AsyncLoggingWorker {
 
     private static final String TAG = "LogentriesAndroidLogger";
 
-    private static final int RECONNECT_WAIT = 100; // milliseconds.
-    private static final int MAX_QUEUE_POLL_TIME = 1000; // milliseconds.
+    private static final int RECONNECT_WAIT = 2000; // milliseconds.
+    private static final int MAX_QUEUE_POLL_TIME = 10000; // milliseconds.
     /**
      * Size of the internal event queue.
      */
@@ -316,6 +316,8 @@ public class AsyncLoggingWorker {
                         // Try to take data from the queue if there are no logs from
                         // the local storage left to send.
                         message = queue.poll(MAX_QUEUE_POLL_TIME, TimeUnit.MILLISECONDS);
+                        if (message == null)
+                            Thread.sleep(30000);
 
                     } else {
 
