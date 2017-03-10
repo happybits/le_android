@@ -86,6 +86,13 @@ public class AsyncLoggingWorker {
     private long backgroundWakeUpLastTime = 0;
     private Timer timerToFallAsleep;
 
+    private boolean _useSsl;
+    private boolean _useHttpPost;
+    private boolean _useDataHub;
+    private String _logToken;
+    private String _dataHubAddress;
+    private int _dataHubPort;
+    private boolean _logHostName;
 
     public AsyncLoggingWorker(Context context, boolean useSsl, boolean useHttpPost, boolean useDataHub, String logToken,
                               String dataHubAddress, int dataHubPort, boolean logHostName) throws IOException {
@@ -96,6 +103,16 @@ public class AsyncLoggingWorker {
 
         queue = new ArrayBlockingQueue<String>(QUEUE_SIZE);
         localStorage = new LogStorage(context);
+        
+        // caching params for future thread restart, needed only for background optimization
+        _useSsl = useSsl;
+        _useHttpPost = useHttpPost;
+        _useDataHub = useDataHub;
+        _logToken = logToken;
+        _dataHubAddress = dataHubAddr;
+        _dataHubPort = dataHubPort;
+        _logHostName = logHostName;
+        
         appender = new SocketAppender(useHttpPost, useSsl, useDataHub, dataHubAddress, dataHubPort, logToken, logHostName, this.sendRawLogMessage);
         appender.start();
         started = true;
@@ -149,6 +166,10 @@ public class AsyncLoggingWorker {
         // Check that we have all parameters set and socket appender running.
         if (shouldStart && !this.started) {
             started = true;
+            
+            if (appender == null) {
+                appender = new SocketAppender(_useHttpPost, _useSsl, _useDataHub, _dataHubAddress, _dataHubPort, _logToken, _logHostName, this.sendRawLogMessage);
+            }
 
             appender.start();
             Log.v(TAG, "*** starting appender thread");
@@ -188,6 +209,7 @@ public class AsyncLoggingWorker {
             }
         }
         appender.interrupt();
+        appender = null;
         started = false;
     }
 
