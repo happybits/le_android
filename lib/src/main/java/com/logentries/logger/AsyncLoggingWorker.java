@@ -136,10 +136,10 @@ public class AsyncLoggingWorker {
             }
 
             if (timeSinceWakeUp > backgroundWakeUpTimes[idx]) {
+                backgroundWakeUpLastTime = now;
                 if (backgroundWakeUpTimesStage < backgroundWakeUpTimes.length - 1) {
                     backgroundWakeUpTimesStage++;
                 }
-                backgroundWakeUpLastTime = now;
                 startTimerToFallAsleep(flushGraceTime);
                 shouldStart = true;
                 Log.v(TAG, "*** restarting appender thread");
@@ -148,9 +148,9 @@ public class AsyncLoggingWorker {
 
         // Check that we have all parameters set and socket appender running.
         if (shouldStart && !this.started) {
+            started = true;
 
             appender.start();
-            started = true;
             Log.v(TAG, "*** starting appender thread");
         }
 
@@ -241,7 +241,7 @@ public class AsyncLoggingWorker {
                     timerToFallAsleep = null;
                     Log.v(TAG, "*** timer fired - closing socket");
                 }
-            }, 0, gracePeriod);
+            }, gracePeriod);
             Log.v(TAG, "*** starting a timer");
         }
     }
