@@ -109,7 +109,7 @@ public class AsyncLoggingWorker {
         _useHttpPost = useHttpPost;
         _useDataHub = useDataHub;
         _logToken = logToken;
-        _dataHubAddress = dataHubAddr;
+        _dataHubAddress = dataHubAddress;
         _dataHubPort = dataHubPort;
         _logHostName = logHostName;
         
