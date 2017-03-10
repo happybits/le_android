@@ -136,6 +136,7 @@ public class AsyncLoggingWorker {
             }
 
             if (timeSinceWakeUp > backgroundWakeUpTimes[idx]) {
+                Log.v(TAG, "*** restarting appender thread");
                 if (backgroundWakeUpTimesStage < backgroundWakeUpTimes.length - 1) {
                     backgroundWakeUpTimesStage++;
                 }
@@ -147,6 +148,7 @@ public class AsyncLoggingWorker {
 
         // Check that we have all parameters set and socket appender running.
         if (shouldStart && !this.started) {
+            Log.v(TAG, "*** starting appender thread");
 
             appender.start();
             started = true;
@@ -222,6 +224,7 @@ public class AsyncLoggingWorker {
 
     private void cancelTimerToFallAsleep() {
         if (timerToFallAsleep != null) {
+            Log.v(TAG, "*** cancelling timer");
             timerToFallAsleep.cancel();
             timerToFallAsleep = null;
         }
@@ -229,10 +232,12 @@ public class AsyncLoggingWorker {
 
     private void startTimerToFallAsleep(long gracePeriod) {
         if (timerToFallAsleep == null) {
+            Log.v(TAG, "*** starting a timer");
             timerToFallAsleep = new Timer("logentries disable timer");
             timerToFallAsleep.schedule(new TimerTask() {
                 @Override
                 public void run() {
+                    Log.v(TAG, "*** timer fired - closing socket");
                     close(1);
                     timerToFallAsleep.cancel();
                     timerToFallAsleep = null;
@@ -244,10 +249,12 @@ public class AsyncLoggingWorker {
     public void setBackgroundMode(boolean isBackground) {
         if (backgrounded != isBackground) {
             if (isBackground) {
+                Log.v(TAG, "*** going to background logging");
                 backgroundWakeUpLastTime = System.currentTimeMillis();
                 backgroundWakeUpTimesStage = 0;
                 startTimerToFallAsleep(flushGraceTime);
             } else {
+                Log.v(TAG, "*** going to foreground logging");
                 cancelTimerToFallAsleep();
             }
         }
