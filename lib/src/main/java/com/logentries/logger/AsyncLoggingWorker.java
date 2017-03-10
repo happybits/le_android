@@ -159,7 +159,6 @@ public class AsyncLoggingWorker {
                 }
                 startTimerToFallAsleep(flushGraceTime);
                 shouldStart = true;
-                Log.v(TAG, "*** restarting appender thread");
             }
         }
 
@@ -172,7 +171,7 @@ public class AsyncLoggingWorker {
             }
 
             appender.start();
-            Log.v(TAG, "*** starting appender thread");
+            //Log.v(TAG, "Restarting appender thread");
         }
 
         if (line.length() > LOG_LENGTH_LIMIT) {
@@ -208,6 +207,7 @@ public class AsyncLoggingWorker {
                 }
             }
         }
+        //Log.v(TAG, "Shutting down appender thread");
         appender.interrupt();
         appender = null;
         started = false;
@@ -246,7 +246,6 @@ public class AsyncLoggingWorker {
 
     private void cancelTimerToFallAsleep() {
         if (timerToFallAsleep != null) {
-            Log.v(TAG, "*** cancelling timer");
             timerToFallAsleep.cancel();
             timerToFallAsleep = null;
         }
@@ -261,10 +260,8 @@ public class AsyncLoggingWorker {
                     close(1);
                     timerToFallAsleep.cancel();
                     timerToFallAsleep = null;
-                    Log.v(TAG, "*** timer fired - closing socket");
                 }
             }, gracePeriod);
-            Log.v(TAG, "*** starting a timer");
         }
     }
 
@@ -274,10 +271,8 @@ public class AsyncLoggingWorker {
                 backgroundWakeUpLastTime = System.currentTimeMillis();
                 backgroundWakeUpTimesStage = 0;
                 startTimerToFallAsleep(flushGraceTime);
-                Log.v(TAG, "*** going to background logging");
             } else {
                 cancelTimerToFallAsleep();
-                Log.v(TAG, "*** going to foreground logging");
             }
         }
         backgrounded = isBackground;
