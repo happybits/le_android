@@ -84,6 +84,8 @@ public class AsyncLoggingWorker {
     private static final long flushGraceTime = 60 * 1000;
     private int backgroundWakeUpTimesStage = 0;
     private long backgroundWakeUpLastTime = 0;
+	
+    final private Object lock = new Object();
     private Timer timerToFallAsleep;
 
     private boolean _useSsl;
@@ -245,37 +247,45 @@ public class AsyncLoggingWorker {
     }
 
     private void cancelTimerToFallAsleep() {
-        if (timerToFallAsleep != null) {
-            timerToFallAsleep.cancel();
-            timerToFallAsleep = null;
-        }
+        synchronized (lock) {
+            if (timerToFallAsleep != null) {
+                timerToFallAsleep.cancel();
+                timerToFallAsleep = null;
+            }
+	}
     }
 
     private void startTimerToFallAsleep(long gracePeriod) {
-        if (timerToFallAsleep == null) {
-            timerToFallAsleep = new Timer("logentries disable timer");
-            timerToFallAsleep.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    close(1);
-                    timerToFallAsleep.cancel();
-                    timerToFallAsleep = null;
-                }
-            }, gracePeriod);
+        synchronized (lock) {
+            if (timerToFallAsleep == null) {
+                timerToFallAsleep = new Timer("logentries disable timer");
+                timerToFallAsleep.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        synchronized (lock) {
+                            close(1);
+                            timerToFallAsleep.cancel();
+                            timerToFallAsleep = null;
+			}
+                    }
+                }, gracePeriod);
+	    }
         }
     }
 
     public void setBackgroundMode(boolean isBackground) {
-        if (backgrounded != isBackground) {
-            if (isBackground) {
-                backgroundWakeUpLastTime = System.currentTimeMillis();
-                backgroundWakeUpTimesStage = 0;
-                startTimerToFallAsleep(flushGraceTime);
-            } else {
-                cancelTimerToFallAsleep();
+        synchronized (lock) {
+            if (backgrounded != isBackground) {
+                if (isBackground) {
+                    backgroundWakeUpLastTime = System.currentTimeMillis();
+                    backgroundWakeUpTimesStage = 0;
+                    startTimerToFallAsleep(flushGraceTime);
+                } else {
+                    cancelTimerToFallAsleep();
+                }
             }
-        }
-        backgrounded = isBackground;
+            backgrounded = isBackground;
+	}
     }
 
     private class SocketAppender extends Thread {
